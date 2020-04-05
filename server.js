@@ -52,14 +52,11 @@ function Location(city, geoData){
     this.longitude = geoData[0].lon;
 }
 
-let wMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-let weekday = ["Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday" ,"Saturday"];
 //constructor for weather
 function Weather(city, weatherData){
     this.search_query = city;
     // this.formatted_query = weatherData[0].display_name;
-    let dating =  new Date(weatherData.datetime);
-    this.time  = `${weekday[dating.getDay()]}-${wMonths[dating.getMonth()]}-${dating.getDate()}-${dating.getFullYear()}`;
+    this.time =  new Date(weatherData.datetime).toDateString();
     this.forecast = weatherData.weather.description;
     arr.push(this);
 }
