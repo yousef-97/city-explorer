@@ -18,11 +18,49 @@ server.listen(PORT, () =>{
 
 //handle any route
 // localhost:3000/
-server.get('/',(req,res)=>{
+server.get('/',(req,res)=>{//request,response
     res.status(200).send('working baby');
 })
 
 
+// localhost:3000/location?city=Lynnwood
+server.get('/location',(req,res)=>{
+    const geoData = require('./data/geo.json');
+    const city = req.query.city;
+    const locationData = new Location(city, geoData);
+    res.send(locationData);
+    
+})
+
+let arr =[];
+// localhost:3000/weather?city=Amman
+server.get('/weather',(req,res)=>{
+    const weather = require('./data/weather.json');
+    const cityWeather = req.query.city;
+    weather.data.forEach(val=>{
+        
+        new Weather(cityWeather, val);
+        
+    })
+    res.send(arr);
+    
+})
+//constructor for loccation
+function Location(city, geoData){
+    this.search_query = city;
+    this.formatted_query = geoData[0].display_name;
+    this.latitude = geoData[0].lat;
+    this.longitude = geoData[0].lon;
+}
+
+//constructor for weather
+function Weather(city, weatherData){
+    this.search_query = city;
+    // this.formatted_query = weatherData[0].display_name;
+    this.forecast = weatherData.weather.description;
+    this.time = weatherData.datetime;
+    arr.push(this);
+}
 
 
 
@@ -32,7 +70,7 @@ server.get('/',(req,res)=>{
 
 
 
-///////////////////for th end ////////////////
+///////////////////for the end ////////////////
 
 //localhost:3000/anything
 server.use('*',(req,res)=>{
