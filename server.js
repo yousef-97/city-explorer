@@ -74,6 +74,7 @@ function giveMeTheWeatherOf(witherOfCity){
     return superagent.get(url)
     .then(weatherSearched=>{
         arr =[];
+        
         console.log(weatherSearched.body);
         weatherSearched.body.data.map(day =>{
             new Weather(day);
@@ -97,7 +98,6 @@ function giveMeTheTrailPlan(cityTrails){
     let key = process.env.TRAILS_API_KEY;
     // console.log(cityTrails);
     const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails. latitude}&lon=${cityTrails.longitude}&key=${key} `;
-    //https://www.hikingproject.com/data/get-trails?lat=40.0274&lon=-105.2519&maxDistance=10&key=200721159-1a
     return superagent.get(url)
     .then(trail=>{
         arr2 =[];
