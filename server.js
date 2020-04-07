@@ -114,12 +114,15 @@ function theLocation(req, res){
         console.log(results)
         if(results.rows.length>0){
             console.log(results.rows[0])
+            giveMeTheWeatherOf(city);
+            giveMeTheTrailPlan(req);
             res.status(200).json(results.rows[0]);
         }
         else{
             giveMeTheLocationOf(city)
             .then(hi=>{
-                // console.log(hi);
+                giveMeTheWeatherOf(city);
+                 giveMeTheTrailPlan(req);
                 let toCheckIfSafeValues = [hi.search_query,hi.formatted_query,hi.latitude,hi.longitude];
                 let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
                 client.query(SQL,toCheckIfSafeValues)
