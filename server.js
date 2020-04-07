@@ -1,22 +1,34 @@
 'use strict';
 const express = require('express');
 
+//dotenv (to read our enviroment varisble)
+require('dotenv').config();
 
 //CORS: cross origin resource sharing
 const cors = require('cors');
 
-//dotenv (to read our enviroment varisble)
-require('dotenv').config();
+//for pg mod
+const pg = require('pg');
 
 //superagent definition
 const superagent = require('superagent');
 
 const PORT = process.env.PORT || 3000;
 
+//open it after creating database
+const client  = new pg.Client(process.env.DATABASE_URL);
+client.on('error',error=>{
+    throw new Error(error);
+})
+
 const server = express();
 server.use(cors());
-server.listen(PORT, () =>{
-    console.log(`Listening on PORT${PORT}`);
+
+client.connect()
+.then(()=>{
+    server.listen(PORT, () =>{
+        console.log(`Listening on PORT${PORT}`);
+    });
 })
 
 
@@ -25,6 +37,63 @@ server.listen(PORT, () =>{
 server.get('/',(req,res)=>{//request,response
     res.status(200).send('working baby');
 })
+
+
+
+///data base stuff  http://localhost:3200/readlocations
+// server.get('/location',(request,response)=>{
+//     const city = request.query.city;
+
+//     let SQL =` SELECT * FROM locations WHERE searchquery = '${city}';`;
+//     client.query(SQL)
+//     .then(results =>{
+//         if(results.rows.length>0){
+//             response.status(200).json(results.rows[0]);
+//         }
+//         else{
+//             giveMeTheLocationOf(city)
+//             .then(results=>{
+//                 let searchQuery = results.search_query;
+//                 let formattedQuery = results.formatted_query;
+//                 let latitude = results.latitude;
+//                 let longitude = results.longitude;
+                
+//                 let toCheckIfSafeValues = [searchQuery,formattedQuery,latitude,longitude];
+//                 let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
+//                 client.query(SQL,toCheckIfSafeValues)
+//                 .then(results =>{
+//                     response.status(200).json(results.rows[0]);
+//                 })
+//                 // newInDataBase(request,response)
+//             })
+
+//         }
+//     })
+//     // .catch (error => errorHandler(error));
+// })
+
+//http://localhost:3200/add?city=[]&lat=[]&lon=[];
+//http://localhost:3200/add?city=amman&lat=31.9515694&lon=35.9239625
+
+// server.get('/add',(request,response)=>{
+// function newInDataBase(request,response){    
+    // let searchQuery = request.query.city;
+    // let formattedQuery = request.query.formattedquery;
+    // let latitude = request.query.lon;
+    // let longitude = request.query.lat;
+    
+    // let toCheckIfSafeValues = [searchQuery,formattedQuery,latitude,longitude];
+    // let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
+    // return client.query(SQL,toCheckIfSafeValues)
+    // .then(results =>{
+    //     response.status(200).json(results.rows[0]);
+    // })
+    // .catch (error => errorHandler(error));
+// }
+    
+// })
+
+
 
 //location and weather
 
@@ -36,11 +105,37 @@ server.get('/trails',theTrails);
 
 
 ////functions for locations
-let loc = [];
 function theLocation(req, res){
     const city = req.query.city;
-    giveMeTheLocationOf(city)
-    .then(hi=> res.status(200).json(hi))//some thing weird
+    let SQL =` SELECT * FROM locations WHERE searchquery = ($1);`;
+    let safeValue = [city];
+    client.query(SQL,safeValue)
+    .then(results =>{
+        console.log(results)
+        if(results.rows.length>0){
+            console.log(results.rows[0])
+            giveMeTheWeatherOf(city);
+            giveMeTheTrailPlan(req);
+            res.status(200).json(results.rows[0]);
+        }
+        else{
+            giveMeTheLocationOf(city)
+            .then(hi=>{
+                giveMeTheWeatherOf(city);
+                 giveMeTheTrailPlan(req);
+                let toCheckIfSafeValues = [hi.search_query,hi.formatted_query,hi.latitude,hi.longitude];
+                let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
+                client.query(SQL,toCheckIfSafeValues)
+                .then(results =>{
+                    // console.log(results)
+                    // console.log(result.location);
+                    res.status(200).json(results.rows);
+                    // res.status(200).json(hi)
+                })
+
+            })//some thing weird
+        }
+    })
 }
 
 
@@ -52,7 +147,7 @@ function giveMeTheLocationOf(city){
     .then(locationSearched=>{
         // console.log(locationSearched)
         const locationData =new Location(city, locationSearched.body);
-        loc.push(locationData);
+        
         return locationData;
     })
 }
@@ -75,7 +170,7 @@ function giveMeTheWeatherOf(witherOfCity){
     .then(weatherSearched=>{
         arr =[];
         
-        console.log(weatherSearched.body);
+        // console.log(weatherSearched.body.data);
         weatherSearched.body.data.map(day =>{
             new Weather(day);
             
@@ -88,16 +183,18 @@ function giveMeTheWeatherOf(witherOfCity){
 
 //////functions for trails
 function theTrails(req,res){
-    const cityTrails = req.query;
-    giveMeTheTrailPlan(cityTrails)
+    // const cityTrails = req.query;
+    giveMeTheTrailPlan(req)
     .then(hi=>res.status(200).json(hi));
     
 }
 let arr2 =[];
-function giveMeTheTrailPlan(cityTrails){
+function giveMeTheTrailPlan(req){
+    const cityTrails = req.query;
     let key = process.env.TRAILS_API_KEY;
     // console.log(cityTrails);
-    const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails. latitude}&lon=${cityTrails.longitude}&key=${key} `;
+    const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails.latitude}&lon=${cityTrails.longitude}&key=${key} `;
+    // const url = `https://www.hikingproject.com/data/get-trails?lat=40.0274&lon=-105.2519&maxDistance=10&key=${key}`;
     return superagent.get(url)
     .then(trail=>{
         arr2 =[];
@@ -157,17 +254,7 @@ server.use((error,req,res)=>{
 })
 
 
+// function errorHandler(error, request, response) {
+//     response.status(500).send(error);
+// }
 
-
-
-
-
-
-// localhost:3000/location?city=Lynnwood
-// server.get('/location',(req,res)=>{
-//     const geoData = require('./data/geo.json');  //old way static
-//     const city = req.query.city;//that in URL after ? mark
-//     const locationData = new Location(city, geoData);
-//     res.send(locationData);
-    
-// })
