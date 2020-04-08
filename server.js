@@ -107,13 +107,13 @@ server.get('/trails',theTrails);
 ////functions for locations
 function theLocation(req, res){
     const city = req.query.city;
-    let SQL =` SELECT * FROM locations WHERE searchquery = ($1);`;
+    let SQL =` SELECT * FROM locations WHERE search_query = ($1);`;
     let safeValue = [city];
     client.query(SQL,safeValue)
     .then(results =>{
-        console.log(results)
+        // console.log(results)
         if(results.rows.length>0){
-            console.log(results.rows[0])
+            // console.log(results.rows[0])
             giveMeTheWeatherOf(city);
             giveMeTheTrailPlan(req);
             res.status(200).json(results.rows[0]);
@@ -121,25 +121,28 @@ function theLocation(req, res){
         else{
             giveMeTheLocationOf(city)
             .then(hi=>{
+                // console.log(giveMeTheLocationOf(city));
                 giveMeTheWeatherOf(city);
                  giveMeTheTrailPlan(req);
                 let toCheckIfSafeValues = [hi.search_query,hi.formatted_query,hi.latitude,hi.longitude];
-                let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
+                let SQL = 'INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4)';
                 client.query(SQL,toCheckIfSafeValues)
                 .then(results =>{
                     // console.log(results)
-                    // console.log(result.location);
-                    res.status(200).json(results.rows);
-                    // res.status(200).json(hi)
+                    // console.log(results.rows);
+                res.status(200).json(hi);
                 })
+                .catch((err) => errorHandler(err, req, res));
 
-            })//some thing weird
+            })
         }
     })
+    .catch((err) => errorHandler(err, req, res));
 }
 
 
 function giveMeTheLocationOf(city){
+    // console.log(city);//////////its work 
     const key = process.env.LOCATION_API_KEY;
     const url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
 
@@ -159,7 +162,10 @@ function theWeather(req, res){
     const cityWeather = req.query.search_query;
     // console.log(cityWeather);
     giveMeTheWeatherOf(cityWeather)
-    .then (weatherData => res.status(200).json(weatherData));
+    .then (weatherData => {
+        res.status(200).json(weatherData)
+    })
+    .catch((err) => errorHandler(err, req, res));
 
 }
 
@@ -185,7 +191,10 @@ function giveMeTheWeatherOf(witherOfCity){
 function theTrails(req,res){
     // const cityTrails = req.query;
     giveMeTheTrailPlan(req)
-    .then(hi=>res.status(200).json(hi));
+    .then(hi=>{
+        res.status(200).json(hi)
+    })
+    .catch((err) => errorHandler(err, req, res));
     
 }
 let arr2 =[];
@@ -193,7 +202,7 @@ function giveMeTheTrailPlan(req){
     const cityTrails = req.query;
     let key = process.env.TRAILS_API_KEY;
     // console.log(cityTrails);
-    const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails.latitude}&lon=${cityTrails.longitude}&key=${key} `;
+    const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails.latitude}&lon=${cityTrails.longitude}&maxDistance=300&key=${key} `;
     // const url = `https://www.hikingproject.com/data/get-trails?lat=40.0274&lon=-105.2519&maxDistance=10&key=${key}`;
     return superagent.get(url)
     .then(trail=>{
@@ -204,6 +213,7 @@ function giveMeTheTrailPlan(req){
         })
         return arr2;
     })
+    
 }
 
 
@@ -254,7 +264,7 @@ server.use((error,req,res)=>{
 })
 
 
-// function errorHandler(error, request, response) {
-//     response.status(500).send(error);
-// }
+function errorHandler(error, request, response) {
+    response.status(500).send(error);
+}
 
