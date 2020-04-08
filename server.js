@@ -40,58 +40,7 @@ server.get('/',(req,res)=>{//request,response
 
 
 
-///data base stuff  http://localhost:3200/readlocations
-// server.get('/location',(request,response)=>{
-//     const city = request.query.city;
 
-//     let SQL =` SELECT * FROM locations WHERE searchquery = '${city}';`;
-//     client.query(SQL)
-//     .then(results =>{
-//         if(results.rows.length>0){
-//             response.status(200).json(results.rows[0]);
-//         }
-//         else{
-//             giveMeTheLocationOf(city)
-//             .then(results=>{
-//                 let searchQuery = results.search_query;
-//                 let formattedQuery = results.formatted_query;
-//                 let latitude = results.latitude;
-//                 let longitude = results.longitude;
-                
-//                 let toCheckIfSafeValues = [searchQuery,formattedQuery,latitude,longitude];
-//                 let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
-//                 client.query(SQL,toCheckIfSafeValues)
-//                 .then(results =>{
-//                     response.status(200).json(results.rows[0]);
-//                 })
-//                 // newInDataBase(request,response)
-//             })
-
-//         }
-//     })
-//     // .catch (error => errorHandler(error));
-// })
-
-//http://localhost:3200/add?city=[]&lat=[]&lon=[];
-//http://localhost:3200/add?city=amman&lat=31.9515694&lon=35.9239625
-
-// server.get('/add',(request,response)=>{
-// function newInDataBase(request,response){    
-    // let searchQuery = request.query.city;
-    // let formattedQuery = request.query.formattedquery;
-    // let latitude = request.query.lon;
-    // let longitude = request.query.lat;
-    
-    // let toCheckIfSafeValues = [searchQuery,formattedQuery,latitude,longitude];
-    // let SQL = 'INSERT INTO locations (searchquery,formattedquery,latitude,longitude) VALUES ($1,$2,$3,$4)';
-    // return client.query(SQL,toCheckIfSafeValues)
-    // .then(results =>{
-    //     response.status(200).json(results.rows[0]);
-    // })
-    // .catch (error => errorHandler(error));
-// }
-    
-// })
 
 
 
@@ -103,27 +52,36 @@ server.get('/weather',theWeather);
 
 server.get('/trails',theTrails);
 
+server.get('/movies',movieHandler); 
+ 
+
+
 
 ////functions for locations
 function theLocation(req, res){
     const city = req.query.city;
-    let SQL =` SELECT * FROM locations WHERE search_query = ($1);`;
+    let SQL =` SELECT * FROM locations WHERE search_query = $1;`;
     let safeValue = [city];
     client.query(SQL,safeValue)
     .then(results =>{
-        // console.log(results)
+        console.log(111111)
         if(results.rows.length>0){
-            // console.log(results.rows[0])
+            console.log(222222)
             giveMeTheWeatherOf(city);
             giveMeTheTrailPlan(req);
+            getMovie(req.query);
+            
             res.status(200).json(results.rows[0]);
         }
         else{
             giveMeTheLocationOf(city)
             .then(hi=>{
+                console.log('no');
                 // console.log(giveMeTheLocationOf(city));
-                giveMeTheWeatherOf(city);
+                giveMeTheWeatherOf(req.query);
                  giveMeTheTrailPlan(req);
+                 getMovie(req.query);
+                
                 let toCheckIfSafeValues = [hi.search_query,hi.formatted_query,hi.latitude,hi.longitude];
                 let SQL = 'INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4)';
                 client.query(SQL,toCheckIfSafeValues)
@@ -159,9 +117,10 @@ function giveMeTheLocationOf(city){
 //////functions for weather
 let arr =[];
 function theWeather(req, res){
-    const cityWeather = req.query.search_query;
+    // console.log()
+    // const cityWeather = req.query.search_query;
     // console.log(cityWeather);
-    giveMeTheWeatherOf(cityWeather)
+    giveMeTheWeatherOf(req.query)
     .then (weatherData => {
         res.status(200).json(weatherData)
     })
@@ -171,7 +130,7 @@ function theWeather(req, res){
 
 function giveMeTheWeatherOf(witherOfCity){
     let key = process.env.WEATHER_API_KEY;
-    const url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${witherOfCity}&key=${key}`;
+    const url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${witherOfCity.search_query}&key=${key}`;
     return superagent.get(url)
     .then(weatherSearched=>{
         arr =[];
@@ -250,7 +209,46 @@ function Trails(trailValues){
 }
 
 
-///////////////////for the end ////////////////
+////////moveis/////
+function movieHandler(request, response) {
+    getMovie(request.query)
+      .then(movieData => response.status(200).send(movieData));
+  
+  } 
+  
+  
+  function getMovie(query) {
+    const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&query=${query.search_query}`;
+  
+    return superagent.get(url)
+      .then(data => {
+        return data.body.results.map(movie => {
+          return new Movies(movie);
+        })
+      })
+      .catch(error => {
+        errorHandler(error,req,res);
+      })
+  
+  }
+  
+  function Movies(data) {
+    this.title = data.title;
+    this.overview = data.overview;
+    this.average_votes = data.vote_average;
+    this.popularity = data.popularity;
+    this.released_date = data.release_date;
+    this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
+  
+  } 
+
+
+
+
+
+
+
+//////////////for the end ////////////////
 
 //localhost:3000/anything
 server.use('*',(req,res)=>{
@@ -267,4 +265,8 @@ server.use((error,req,res)=>{
 function errorHandler(error, request, response) {
     response.status(500).send(error);
 }
+
+
+
+
 
