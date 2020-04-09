@@ -54,8 +54,9 @@ server.get('/weather', theWeather);
 
 server.get('/trails', theTrails);
 
-server.get('/movies',movieHandler); 
+server.get('/movies', movieHandler);
 
+server.get('/yelp', yelpHandler);
 
 
 
@@ -66,9 +67,9 @@ function theLocation(req, res) {
     giveMeTheLocationOf(city)
         .then(loc => {
             // console.log(loc)
-             res.status(200).json(loc)
-             })
-        
+            res.status(200).json(loc)
+        })
+
 }
 
 
@@ -96,15 +97,15 @@ function giveMeTheLocationOf(city) {
                         let toCheckIfSafeValues = [locationData.search_query, locationData.formatted_query, locationData.latitude, locationData.longitude];
                         let SQL = 'INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4);';
                         client.query(SQL, toCheckIfSafeValues)
-                            // .then(results => {
-                            //     console.log(results);
-                            //     results.rows[0];
-                            // })
-                            
+                        // .then(results => {
+                        //     console.log(results);
+                        //     results.rows[0];
+                        // })
 
-                            return locationData;
+
+                        return locationData;
                     })
-                    
+
 
             }
 
@@ -221,8 +222,8 @@ function movieHandler(request, response) {
 }
 
 
-function getMovie(query) {
-    const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&query=${query.search_query}`;
+function getMovie(movieQuery) {
+    const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&query=${movieQuery.search_query}`;
 
     return superagent.get(url)
         .then(data => {
@@ -245,6 +246,38 @@ function Movies(data) {
     this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
 
 }
+
+///////yelp////
+function yelpHandler(request, response) {
+    getYelp(request.query)
+        .then(yelpData => response.status(200).send(yelpData));
+
+}
+
+function getYelp(yelpQuery) {
+    const url = `https://api.yelp.com/v3/businesses/search?location=${yelpQuery.search_query}`
+
+
+    return superagent.get(url)
+        .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+        .then(data => {
+            // console.log(data.body);
+            let yelpPath = data.body.businesses;
+            return yelpPath.map(yelp => {
+                return new Yelp(yelp)
+            })
+        })
+
+}
+
+function Yelp(yelp) {
+    this.name = yelp.name;
+    this.image_url = yelp.image_url;
+    this.price = yelp.price;
+    this.rating = yelp.rating;
+    this.url = yelp.url;
+}
+
 
 
 
