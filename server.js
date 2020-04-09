@@ -1,40 +1,42 @@
 'use strict';
-const express = require('express');
 
 //dotenv (to read our enviroment varisble)
 require('dotenv').config();
 
+
+/////////////the required (dependencies)////////////
+const express = require('express');
 //CORS: cross origin resource sharing
 const cors = require('cors');
-
 //for pg mod
 const pg = require('pg');
-
 //superagent definition
 const superagent = require('superagent');
 
+
+
 const PORT = process.env.PORT || 3000;
 
-//open it after creating database
-const client  = new pg.Client(process.env.DATABASE_URL);
-client.on('error',error=>{
-    throw new Error(error);
-})
-
 const server = express();
+
 server.use(cors());
 
+//open it after creating database
+const client = new pg.Client(process.env.DATABASE_URL);
+
+
+
 client.connect()
-.then(()=>{
-    server.listen(PORT, () =>{
-        console.log(`Listening on PORT${PORT}`);
-    });
-})
+    .then(() => {
+        server.listen(PORT, () => {
+            console.log(`Listening on PORT${PORT}`);
+        });
+    })
 
 
 //handle any route
 // localhost:3000/
-server.get('/',(req,res)=>{//request,response
+server.get('/', (req, res) => {//request,response
     res.status(200).send('working baby');
 })
 
@@ -46,140 +48,142 @@ server.get('/',(req,res)=>{//request,response
 
 //location and weather
 
-server.get('/location',theLocation);
+server.get('/location', theLocation);
 
-server.get('/weather',theWeather);
+server.get('/weather', theWeather);
 
-server.get('/trails',theTrails);
+server.get('/trails', theTrails);
 
 server.get('/movies',movieHandler); 
- 
+
 
 
 
 ////functions for locations
-function theLocation(req, res){
+function theLocation(req, res) {
+    // console.log(1);
     const city = req.query.city;
-    let SQL =` SELECT * FROM locations WHERE search_query = $1;`;
-    let safeValue = [city];
-    client.query(SQL,safeValue)
-    .then(results =>{
-        console.log(111111)
-        if(results.rows.length>0){
-            console.log(222222)
-            giveMeTheWeatherOf(city);
-            giveMeTheTrailPlan(req);
-            getMovie(req.query);
-            
-            res.status(200).json(results.rows[0]);
-        }
-        else{
-            giveMeTheLocationOf(city)
-            .then(hi=>{
-                console.log('no');
-                // console.log(giveMeTheLocationOf(city));
-                giveMeTheWeatherOf(req.query);
-                 giveMeTheTrailPlan(req);
-                 getMovie(req.query);
-                
-                let toCheckIfSafeValues = [hi.search_query,hi.formatted_query,hi.latitude,hi.longitude];
-                let SQL = 'INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4)';
-                client.query(SQL,toCheckIfSafeValues)
-                .then(results =>{
-                    // console.log(results)
-                    // console.log(results.rows);
-                res.status(200).json(hi);
-                })
-                .catch((err) => errorHandler(err, req, res));
-
-            })
-        }
-    })
-    .catch((err) => errorHandler(err, req, res));
+    giveMeTheLocationOf(city)
+        .then(loc => {
+            // console.log(loc)
+             res.status(200).json(loc)
+             })
+        
 }
 
 
-function giveMeTheLocationOf(city){
-    // console.log(city);//////////its work 
-    const key = process.env.LOCATION_API_KEY;
-    const url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
+function giveMeTheLocationOf(city) {
+    // console.log(2);
+    let SQL = ` SELECT * FROM locations WHERE search_query = $1;`;
+    let safeValue = [city];
+    return client.query(SQL, safeValue)
+        .then(results => {
+            if (results.rows.length > 0) {
+                console.log('in data base');
+                return results.rows[0];
+            }
+            else {
+                console.log('not in data base')
+                const key = process.env.LOCATION_API_KEY;
+                const url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
 
-    return superagent.get(url)
-    .then(locationSearched=>{
-        // console.log(locationSearched)
-        const locationData =new Location(city, locationSearched.body);
-        
-        return locationData;
-    })
+                return superagent.get(url)
+                    .then(locationSearched => {
+                        // console.log('im here')
+                        // console.log(locationSearched)
+                        const locationData = new Location(city, locationSearched.body);
+                        // console.log(locationData)
+                        let toCheckIfSafeValues = [locationData.search_query, locationData.formatted_query, locationData.latitude, locationData.longitude];
+                        let SQL = 'INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4);';
+                        client.query(SQL, toCheckIfSafeValues)
+                            // .then(results => {
+                            //     console.log(results);
+                            //     results.rows[0];
+                            // })
+                            
+
+                            return locationData;
+                    })
+                    
+
+            }
+
+
+        })
+        .catch((err) => errorHandler(err));
+
 }
 
 
 //////functions for weather
-let arr =[];
-function theWeather(req, res){
-    // console.log()
+let arr = [];
+function theWeather(req, res) {
+    // console.log(3);
     // const cityWeather = req.query.search_query;
     // console.log(cityWeather);
     giveMeTheWeatherOf(req.query)
-    .then (weatherData => {
-        res.status(200).json(weatherData)
-    })
-    .catch((err) => errorHandler(err, req, res));
+        .then(weatherData => {
+            res.status(200).json(weatherData)
+        })
+        .catch((err) => errorHandler(err, req, res));
 
 }
 
-function giveMeTheWeatherOf(witherOfCity){
+function giveMeTheWeatherOf(witherOfCity) {
+    // console.log(4);
     let key = process.env.WEATHER_API_KEY;
     const url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${witherOfCity.search_query}&key=${key}`;
     return superagent.get(url)
-    .then(weatherSearched=>{
-        arr =[];
-        
-        // console.log(weatherSearched.body.data);
-        weatherSearched.body.data.map(day =>{
-            new Weather(day);
-            
-        });
-        // console.log(arr)
-        return arr;
-    })
+        .then(weatherSearched => {
+            arr = [];
+
+            // console.log(weatherSearched.body.data);
+            weatherSearched.body.data.map(day => {
+                new Weather(day);
+
+            });
+            // console.log(arr)
+            return arr;
+        })
 }
 
 
 //////functions for trails
-function theTrails(req,res){
+function theTrails(req, res) {
+    // console.log(5);
     // const cityTrails = req.query;
     giveMeTheTrailPlan(req)
-    .then(hi=>{
-        res.status(200).json(hi)
-    })
-    .catch((err) => errorHandler(err, req, res));
-    
+        .then(hi => {
+            res.status(200).json(hi)
+        })
+        .catch((err) => errorHandler(err, req, res));
+
 }
-let arr2 =[];
-function giveMeTheTrailPlan(req){
+let arr2 = [];
+function giveMeTheTrailPlan(req) {
+    // console.log(6);
     const cityTrails = req.query;
     let key = process.env.TRAILS_API_KEY;
     // console.log(cityTrails);
-    const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails.latitude}&lon=${cityTrails.longitude}&maxDistance=300&key=${key} `;
+    const url = `https://www.hikingproject.com/data/get-trails?lat=${cityTrails.latitude}&lon=${cityTrails.longitude}&maxDistance=400&key=${key} `;
     // const url = `https://www.hikingproject.com/data/get-trails?lat=40.0274&lon=-105.2519&maxDistance=10&key=${key}`;
     return superagent.get(url)
-    .then(trail=>{
-        arr2 =[];
-        trail.body.trails.map(val=>{
-            new Trails(val);
-            
+        .then(trail => {
+            arr2 = [];
+            trail.body.trails.map(val => {
+                new Trails(val);
+
+            })
+            return arr2;
         })
-        return arr2;
-    })
-    
+
 }
 
 
 
 
 //constructor for loccation
-function Location(city, geoData){
+function Location(city, geoData) {
     this.search_query = city;
     this.formatted_query = geoData[0].display_name;
     this.latitude = geoData[0].lat;
@@ -187,14 +191,14 @@ function Location(city, geoData){
 }
 
 //constructor for weather
-function Weather(weatherData){
-    this.time =  new Date(weatherData.datetime).toDateString();
+function Weather(weatherData) {
+    this.time = new Date(weatherData.datetime).toDateString();
     this.forecast = weatherData.weather.description;
     arr.push(this);
 }
 //
 //constructor for trails
-function Trails(trailValues){
+function Trails(trailValues) {
     this.name = trailValues.name;
     this.Location = trailValues.location;
     this.length = trailValues.length;
@@ -212,52 +216,48 @@ function Trails(trailValues){
 ////////moveis/////
 function movieHandler(request, response) {
     getMovie(request.query)
-      .then(movieData => response.status(200).send(movieData));
-  
-  } 
-  
-  
-  function getMovie(query) {
+        .then(movieData => response.status(200).send(movieData));
+
+}
+
+
+function getMovie(query) {
     const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIES_API_KEY}&query=${query.search_query}`;
-  
+
     return superagent.get(url)
-      .then(data => {
-        return data.body.results.map(movie => {
-          return new Movies(movie);
+        .then(data => {
+            return data.body.results.map(movie => {
+                return new Movies(movie);
+            })
         })
-      })
-      .catch(error => {
-        errorHandler(error,req,res);
-      })
-  
-  }
-  
-  function Movies(data) {
+        .catch(error => {
+            errorHandler(error, req, res);
+        })
+
+}
+
+function Movies(data) {
     this.title = data.title;
     this.overview = data.overview;
     this.average_votes = data.vote_average;
     this.popularity = data.popularity;
     this.released_date = data.release_date;
     this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
-  
-  } 
 
-
-
-
+}
 
 
 
 //////////////for the end ////////////////
 
-//localhost:3000/anything
-server.use('*',(req,res)=>{
+//localhost:3000/
+server.use('*', (req, res) => {
     // '*' for all 
     res.status(404).send('NOT FOUND');
 });
 
 //for error
-server.use((error,req,res)=>{
+server.use((error, req, res) => {
     res.status(500).send(error);
 })
 
