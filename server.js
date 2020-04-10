@@ -22,6 +22,7 @@ const server = express();
 server.use(cors());
 
 //open it after creating database
+
 // const client = new pg.Client(process.env.DATABASE_URL);
 
 
@@ -32,6 +33,7 @@ server.use(cors());
         console.log(`Listening on PORT${PORT}`);
     });
 // })
+
 
 
 //handle any route
@@ -53,6 +55,7 @@ const theYelpHandler = require('./yelp.js');
 //the routes
 
 server.get('/location', theLocationHandler);
+
 
 server.get('/weather', theWeatherHandler);
 
